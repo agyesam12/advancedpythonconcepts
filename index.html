@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python &amp; Django/DRF — Senior Engineering Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ===================== NAV ===================== -->
+<nav class="sidenav" id="sidenav">
+  <div class="sidenav__head">
+    <span class="sidenav__mark">&gt;_</span>
+    <div>
+      <div class="sidenav__title">Python &amp; Django/DRF</div>
+      <div class="sidenav__sub">Senior Engineering Notes</div>
+    </div>
+  </div>
+
+  <div class="sidenav__group-label">Python Core</div>
+  <a class="sidenav__link" href="#q1"><span>01</span>Tuple vs List</a>
+  <a class="sidenav__link" href="#q2"><span>02</span>Mutability &amp; Arguments</a>
+  <a class="sidenav__link" href="#q3"><span>03</span>The Shared Default Trap</a>
+  <a class="sidenav__link" href="#q4"><span>04</span>Iterators vs Generators</a>
+  <a class="sidenav__link" href="#q5"><span>05</span>Generators at Scale</a>
+  <a class="sidenav__link" href="#q6"><span>06</span>Concurrency vs Parallelism</a>
+
+  <div class="sidenav__group-label">Django &amp; DRF Multi-Tenancy</div>
+  <a class="sidenav__link" href="#q7"><span>07</span>Middleware vs Context Processors</a>
+  <a class="sidenav__link" href="#q8"><span>08</span>Where request.tenant Lives</a>
+  <a class="sidenav__link" href="#q9"><span>09</span>Global Enforcement Plan</a>
+  <a class="sidenav__link" href="#q10"><span>10</span>Resolution Layer Choice</a>
+  <a class="sidenav__link" href="#q11"><span>11</span>Auto-Scoped ViewSets</a>
+  <a class="sidenav__link" href="#q12"><span>12</span>Object-Level Isolation</a>
+
+  <div class="sidenav__foot">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="sidenav__author">
+      <div class="avatar">AS</div>
+      <div>
+        <div class="author-name">Agyemang Samuel</div>
+        <div class="author-role">Senior Frontend Engineer</div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+  <span></span><span></span><span></span>
+</button>
+
+<!-- ===================== MAIN ===================== -->
+<main class="content">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="hero__bg" aria-hidden="true">
+      <div class="hero__line"></div>
+      <div class="hero__line"></div>
+      <div class="hero__line"></div>
+    </div>
+    <p class="hero__eyebrow">Field Notes — Python · Django · Django REST Framework</p>
+    <h1 class="hero__title">
+      Twelve questions that<br>
+      separate <span class="hl">junior</span> from <span class="hl hl--alt">senior</span>.
+    </h1>
+    <p class="hero__lead">
+      A walkthrough of the Python internals and Django/DRF architecture decisions that
+      quietly determine whether your application leaks memory, leaks tenants, or just
+      works — written as an interactive reference, not a wall of text.
+    </p>
+    <div class="hero__meta">
+      <div class="hero__meta-item">
+        <span class="hero__meta-num">12</span>
+        <span class="hero__meta-label">Topics</span>
+      </div>
+      <div class="hero__meta-item">
+        <span class="hero__meta-num">06</span>
+        <span class="hero__meta-label">Python Core</span>
+      </div>
+      <div class="hero__meta-item">
+        <span class="hero__meta-num">06</span>
+        <span class="hero__meta-label">Django / DRF</span>
+      </div>
+    </div>
+    <a href="#q1" class="hero__cta">Start reading <span class="arrow">↓</span></a>
+  </header>
+
+  <!-- ===================== Q1 ===================== -->
+  <section class="qa" id="q1">
+    <div class="qa__head">
+      <span class="qa__num">01</span>
+      <h2 class="qa__title">Tuple vs. list — and when to reach for which</h2>
+    </div>
+
+    <p>A list and a tuple are both ordered, indexable sequences — but the difference that
+    actually matters in practice is <strong>mutability and intent</strong>. A tuple is a
+    sealed record; a list is a container you expect to keep changing.</p>
+
+    <div class="compare">
+      <div class="compare__card compare__card--tuple">
+        <div class="compare__head">
+          <span class="compare__icon">🔒</span>
+          <h3>tuple</h3>
+        </div>
+        <code class="compare__code">point = (3, 7)</code>
+        <ul class="compare__list">
+          <li>Immutable — contents fixed at creation</li>
+          <li>Hashable (if elements are) — usable as dict keys / set members</li>
+          <li>Slightly faster, smaller memory footprint</li>
+          <li>Signals "this is a fixed record"</li>
+        </ul>
+      </div>
+      <div class="compare__card compare__card--list">
+        <div class="compare__head">
+          <span class="compare__icon">📦</span>
+          <h3>list</h3>
+        </div>
+        <code class="compare__code">queue = [3, 7]</code>
+        <ul class="compare__list">
+          <li>Mutable — append, remove, sort in place</li>
+          <li>Not hashable — can't be a dict key</li>
+          <li>Built for growth and iteration</li>
+          <li>Signals "this collection will change"</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout callout--tip">
+      <span class="callout__icon">→</span>
+      <div>
+        <strong>Rule of thumb:</strong> if you'd be uncomfortable with someone mutating it
+        downstream — coordinates, RGB values, a function's multi-value return, a dict
+        key — make it a tuple. If you're going to <code>append</code>, <code>sort</code>,
+        or <code>filter</code> it, it's a list.
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Q2 + Q3 (combined interactive) ===================== -->
+  <section class="qa" id="q2">
+    <div class="qa__head">
+      <span class="qa__num">02</span>
+      <h2 class="qa__title">Argument passing, mutability, and the <code>def f(x=[])</code> trap</h2>
+    </div>
+
+    <p>Python passes <strong>references to objects</strong>, never copies and never
+    "variable slots." Whether a function's edits are visible to the caller depends entirely
+    on whether the object itself is mutable.</p>
+
+    <div class="rule-grid">
+      <div class="rule-grid__item">
+        <div class="rule-grid__tag rule-grid__tag--immutable">Immutable</div>
+        <p><code>int</code>, <code>str</code>, <code>tuple</code> — "modifying" inside a
+        function creates a <em>new</em> object and rebinds the local name. The caller's
+        variable is untouched.</p>
+      </div>
+      <div class="rule-grid__item">
+        <div class="rule-grid__tag rule-grid__tag--mutable">Mutable</div>
+        <p><code>list</code>, <code>dict</code>, <code>set</code>, custom objects — in-place
+        mutation (<code>.append()</code>, item assignment) is visible to the caller, because
+        both names point at the <em>same</em> object.</p>
+      </div>
+    </div>
+
+    <h3 class="section-sub">The trap, live</h3>
+    <p>Default argument values are evaluated <strong>once, at definition time</strong> —
+    not on every call. A mutable default becomes a single object shared by every call that
+    omits the argument. Press <strong>Call</strong> a few times below.</p>
+  </section>
+
+  <!-- ===================== Q3 interactive widget (its own section id for nav) ===================== -->
+  <section class="qa qa--tight" id="q3">
+    <div class="widget" id="mutableWidget">
+      <div class="widget__header">
+        <code class="widget__sig">def add_item(item, bucket=[]):</code>
+        <button class="btn btn--reset" id="resetBtn">↺ Reset</button>
+      </div>
+
+      <div class="widget__body">
+        <div class="widget__stage">
+          <div class="actor" id="actorCall1">
+            <div class="actor__label">Call 1</div>
+            <code class="actor__code">add_item('a')</code>
+            <button class="btn btn--primary" data-call="1">Call</button>
+          </div>
+          <div class="actor" id="actorCall2">
+            <div class="actor__label">Call 2</div>
+            <code class="actor__code">add_item('b')</code>
+            <button class="btn btn--primary" data-call="2">Call</button>
+          </div>
+          <div class="actor" id="actorCall3">
+            <div class="actor__label">Call 3</div>
+            <code class="actor__code">add_item('c')</code>
+            <button class="btn btn--primary" data-call="3">Call</button>
+          </div>
+        </div>
+
+        <div class="memory">
+          <div class="memory__title">Heap — the shared default object</div>
+          <div class="memory__box" id="memoryBox">
+            <span class="memory__addr">id 0x7f3a…  list object</span>
+            <div class="memory__contents" id="memoryContents">
+              <span class="memory__empty">[ ]</span>
+            </div>
+          </div>
+          <p class="memory__caption" id="memoryCaption">
+            Every call that omits <code>bucket</code> binds to <em>this exact object</em>.
+          </p>
+        </div>
+      </div>
+
+      <div class="widget__log" id="widgetLog">
+        <div class="widget__log-empty">Run a call to see what happens to <code>bucket</code> and what gets returned.</div>
+      </div>
+    </div>
+
+    <h3 class="section-sub">The fix</h3>
+    <div class="diff">
+      <div class="diff__col diff__col--bad">
+        <div class="diff__label">✗ Shared mutable default</div>
+        <pre class="diff__code">def add_item(item, bucket=[]):
+    bucket.append(item)
+    return bucket</pre>
+      </div>
+      <div class="diff__col diff__col--good">
+        <div class="diff__label">✓ Sentinel + fresh object per call</div>
+        <pre class="diff__code">def add_item(item, bucket=None):
+    if bucket is None:
+        bucket = []
+    bucket.append(item)
+    return bucket</pre>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <span class="callout__icon">⚠</span>
+      <div>
+        <strong>Why it bites in production:</strong> in long-running processes (a Django
+        view, a Celery worker, an async loop) the same function object is reused across
+        thousands of calls. A mutable default becomes accidental, hidden global state that
+        accumulates silently — and the bug only shows up after the second call, which
+        rarely happens in a quick manual test.
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Q4 ===================== -->
+  <section class="qa" id="q4">
+    <div class="qa__head">
+      <span class="qa__num">03</span>
+      <h2 class="qa__title">Iterators vs. generators — what <code>yield</code> actually changes</h2>
+    </div>
+
+    <p>Every generator is an iterator, but not every iterator is a generator. An
+    <strong>iterator</strong> is any object implementing <code>__iter__</code> and
+    <code>__next__</code>. A <strong>generator</strong> is the easy way to get one — write a
+    function with <code>yield</code>, and Python builds the iterator for you.</p>
+
+    <h3 class="section-sub">Step through a generator's lifecycle</h3>
+    <p>This function is paused, not finished, every time it hits <code>yield</code>. Click
+    <strong>Next</strong> to step through calls to <code>next()</code>.</p>
+
+    <div class="genwidget" id="genWidget">
+      <pre class="genwidget__code" id="genCode"><span class="gline" data-line="0">def countdown(n):</span>
+<span class="gline" data-line="1">    while n &gt; 0:</span>
+<span class="gline" data-line="2">        yield n</span>
+<span class="gline" data-line="3">        n -= 1</span>
+<span class="gline" data-line="4">    print("done")</span></pre>
+
+      <div class="genwidget__panel">
+        <div class="genwidget__row">
+          <span class="genwidget__key">state</span>
+          <span class="genwidget__val" id="genState">not started</span>
+        </div>
+        <div class="genwidget__row">
+          <span class="genwidget__key">n</span>
+          <span class="genwidget__val" id="genN">3</span>
+        </div>
+        <div class="genwidget__row">
+          <span class="genwidget__key">last next() returned</span>
+          <span class="genwidget__val" id="genYield">—</span>
+        </div>
+        <div class="genwidget__output" id="genOutput"></div>
+        <button class="btn btn--primary" id="genNext">Call next() ▶</button>
+      </div>
+    </div>
+
+    <div class="callout callout--tip">
+      <span class="callout__icon">→</span>
+      <div>
+        Calling <code>countdown(3)</code> runs <strong>none</strong> of the body — it
+        returns a generator object. Each <code>next()</code> resumes execution exactly
+        where it paused, with all local variables (here, <code>n</code>) intact, until
+        either the next <code>yield</code> or a <code>StopIteration</code>.
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Q5 ===================== -->
+  <section class="qa" id="q5">
+    <div class="qa__head">
+      <span class="qa__num">04</span>
+      <h2 class="qa__title">Why pipelines reach for generators over full lists</h2>
+    </div>
+
+    <p>At pipeline scale, the question isn't "is this faster" — it's
+    <strong>"does this fit in memory, and can the next stage start before this one
+    finishes?"</strong> A generator yields one record at a time; a list materializes
+    everything before anything downstream can begin.</p>
+
+    <div class="pipeline" id="pipeline">
+      <div class="pipeline__stage" data-stage="read">
+        <div class="pipeline__icon">📄</div>
+        <div class="pipeline__label">read_rows()</div>
+      </div>
+      <div class="pipeline__arrow">→</div>
+      <div class="pipeline__stage" data-stage="parse">
+        <div class="pipeline__icon">🔧</div>
+        <div class="pipeline__label">parse()</div>
+      </div>
+      <div class="pipeline__arrow">→</div>
+      <div class="pipeline__stage" data-stage="filter">
+        <div class="pipeline__icon">🧪</div>
+        <div class="pipeline__label">filter()</div>
+      </div>
+      <div class="pipeline__arrow">→</div>
+      <div class="pipeline__stage" data-stage="write">
+        <div class="pipeline__icon">💾</div>
+        <div class="pipeline__label">write()</div>
+      </div>
+    </div>
+    <div class="pipeline__controls">
+      <button class="btn btn--primary" id="pipelineRun">▶ Stream one record</button>
+      <span class="pipeline__hint" id="pipelineHint">Each stage pulls one item only when the next stage asks for it — nothing is buffered in full.</span>
+    </div>
+
+    <div class="tradeoff-table">
+      <div class="tradeoff-table__row tradeoff-table__row--head">
+        <div>Generators win</div>
+        <div>Trade-offs to weigh</div>
+      </div>
+      <div class="tradeoff-table__row">
+        <div>Constant memory regardless of dataset size</div>
+        <div>Single-pass only — re-iterating means recreating the generator</div>
+      </div>
+      <div class="tradeoff-table__row">
+        <div>Pipeline stages compose naturally (read → parse → filter → write)</div>
+        <div>No <code>len()</code> or indexing/slicing</div>
+      </div>
+      <div class="tradeoff-table__row">
+        <div>Downstream work can start before upstream finishes</div>
+        <div>Errors surface lazily — harder stack traces</div>
+      </div>
+      <div class="tradeoff-table__row">
+        <div>Plays well with <code>itertools</code> for declarative pipelines</div>
+        <div>Open resources (files, cursors) need explicit cleanup</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Q6 ===================== -->
+  <section class="qa" id="q6">
+    <div class="qa__head">
+      <span class="qa__num">05</span>
+      <h2 class="qa__title">Concurrency vs. parallelism — and what the GIL means for CPU-bound work</h2>
+    </div>
+
+    <p><strong>Concurrency</strong> is structure: multiple tasks in progress, interleaved.
+    <strong>Parallelism</strong> is execution: multiple tasks running at the literal same
+    instant, on multiple cores. A single core can be concurrent but never parallel.</p>
+
+    <div class="gil-demo">
+      <div class="gil-demo__col">
+        <h4>Threading <span class="badge badge--neutral">I/O-bound</span></h4>
+        <div class="gil-demo__lanes">
+          <div class="gil-lane">
+            <span class="gil-lane__label">Thread A</span>
+            <div class="gil-lane__track gil-lane__track--io"><div class="gil-lane__bar gil-bar-1"></div></div>
+          </div>
+          <div class="gil-lane">
+            <span class="gil-lane__label">Thread B</span>
+            <div class="gil-lane__track gil-lane__track--io"><div class="gil-lane__bar gil-bar-2"></div></div>
+          </div>
+        </div>
+        <p class="gil-demo__note">GIL released while waiting on I/O → real overlap.</p>
+      </div>
+
+      <div class="gil-demo__col">
+        <h4>Threading <span class="badge badge--warn">CPU-bound</span></h4>
+        <div class="gil-demo__lanes">
+          <div class="gil-lane">
+            <span class="gil-lane__label">Thread A</span>
+            <div class="gil-lane__track gil-lane__track--cpu"><div class="gil-lane__bar gil-bar-3"></div></div>
+          </div>
+          <div class="gil-lane">
+            <span class="gil-lane__label">Thread B</span>
+            <div class="gil-lane__track gil-lane__track--cpu"><div class="gil-lane__bar gil-bar-4"></div></div>
+          </div>
+        </div>
+        <p class="gil-demo__note">GIL forces strict turn-taking → no real speedup.</p>
+      </div>
+
+      <div class="gil-demo__col">
+        <h4>Multiprocessing <span class="badge badge--good">CPU-bound</span></h4>
+        <div class="gil-demo__lanes">
+          <div class="gil-lane">
+            <span class="gil-lane__label">Process A</span>
+            <div class="gil-lane__track gil-lane__track--mp"><div class="gil-lane__bar gil-bar-5"></div></div>
+          </div>
+          <div class="gil-lane">
+            <span class="gil-lane__label">Process B</span>
+            <div class="gil-lane__track gil-lane__track--mp"><div class="gil-lane__bar gil-bar-6"></div></div>
+          </div>
+        </div>
+        <p class="gil-demo__note">Separate interpreters, separate GILs → true parallelism.</p>
+      </div>
+    </div>
+
+    <div class="decision-row">
+      <div class="decision-card">
+        <div class="decision-card__icon">⏳</div>
+        <div class="decision-card__title">I/O-bound</div>
+        <div class="decision-card__body">network calls, DB queries, file I/O</div>
+        <div class="decision-card__answer">→ <code>threading</code> or <code>asyncio</code></div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-card__icon">🧮</div>
+        <div class="decision-card__title">CPU-bound</div>
+        <div class="decision-card__body">tight loops, numeric crunching, image processing</div>
+        <div class="decision-card__answer">→ <code>multiprocessing</code> or C-extensions</div>
+      </div>
+      <div class="decision-card">
+        <div class="decision-card__icon">⚖️</div>
+        <div class="decision-card__title">Mixed</div>
+        <div class="decision-card__body">orchestration + heavy compute</div>
+        <div class="decision-card__answer">→ <code>asyncio</code> + a process pool</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Q7 ===================== -->
+  <section class="qa" id="q7">
+    <div class="qa__head">
+      <span class="qa__num">06</span>
+      <h2 class="qa__title">Middleware vs. context processors</h2>
+    </div>
+
+    <p>Both let you inject logic outside the view — but they operate at different layers
+    of the request lifecycle, and only one of them runs for non-template responses.</p>
+
+    <div class="lifecycle">
+      <div class="lifecycle__path">
+        <div class="lifecycle__node lifecycle__node--mw">
+          <span class="lifecycle__tag">Middleware</span>
+          <span class="lifecycle__desc">request in</span>
+        </div>
+        <div class="lifecycle__line"></div>
+        <div class="lifecycle__node lifecycle__node--view">
+          <span class="lifecycle__tag">View</span>
+          <span class="lifecycle__desc">business logic</span>
+        </div>
+        <div class="lifecycle__line"></div>
+        <div class="lifecycle__node lifecycle__node--ctx">
+          <span class="lifecycle__tag">Context Processor</span>
+          <span class="lifecycle__desc">only if rendering a template</span>
+        </div>
+        <div class="lifecycle__line"></div>
+        <div class="lifecycle__node lifecycle__node--mw">
+          <span class="lifecycle__tag">Middleware</span>
+          <span class="lifecycle__desc">response out</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="compare">
+      <div class="compare__card">
+        <div class="compare__head"><span class="compare__icon">🛡️</span><h3>Middleware</h3></div>
+        <ul class="compare__list">
+          <li>Runs for <strong>every request</strong> — APIs, redirects, downloads, everything</li>
+          <li>Can short-circuit before the view ever runs</li>
+          <li>Can modify the response, or catch exceptions</li>
+          <li>Right place for: auth, tenant resolution, logging, rate limiting</li>
+        </ul>
+      </div>
+      <div class="compare__card">
+        <div class="compare__head"><span class="compare__icon">🎨</span><h3>Context Processor</h3></div>
+        <ul class="compare__list">
+          <li>Runs only when a <strong>template is rendered</strong></li>
+          <li>Adds variables to every template's context automatically</li>
+          <li>No effect on JSON/API responses or redirects</li>
+          <li>Right place for: display-only values (e.g. tenant name in a navbar)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout callout--tip">
+      <span class="callout__icon">→</span>
+      <div>They're often layered: middleware resolves <code>request.tenant</code> as the
+      source of truth (available everywhere, including APIs); a context processor simply
+      exposes that already-resolved value for display in templates.</div>
+    </div>
+  </section>
+
+  <!-- ===================== Q8 ===================== -->
+  <section class="qa" id="q8">
+    <div class="qa__head">
+      <span class="qa__num">07</span>
+      <h2 class="qa__title">Where does <code>request.tenant</code> belong?</h2>
+    </div>
+
+    <p>In custom <strong>middleware</strong>, placed early in the stack — resolving the
+    tenant from the subdomain, a header, or a token claim before any view code runs.</p>
+
+    <div class="reasons-grid">
+      <div class="reason"><div class="reason__num">1</div><div><strong>Single point of resolution.</strong> One place owns "which tenant is this?" — no duplicated logic across views and serializers.</div></div>
+      <div class="reason"><div class="reason__num">2</div><div><strong>Runs for every request.</strong> Views, viewsets, permissions and serializers can all assume <code>request.tenant</code> already exists.</div></div>
+      <div class="reason"><div class="reason__num">3</div><div><strong>Fails fast.</strong> Unknown or inactive tenant → return 404/400 immediately, before any DB work happens.</div></div>
+      <div class="reason"><div class="reason__num">4</div><div><strong>Works everywhere.</strong> Function views, class views, DRF viewsets, signals — all see the same attribute on <code>request</code>.</div></div>
+    </div>
+
+    <pre class="codeblock"><code><span class="kw">class</span> <span class="cls">TenantMiddleware</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, get_response):
+        self.get_response = get_response
+
+    <span class="kw">def</span> <span class="fn">__call__</span>(self, request):
+        subdomain = request.get_host().split(<span class="str">'.'</span>)[0]
+        tenant = Tenant.objects.filter(
+            schema_name=subdomain, is_active=<span class="kw">True</span>
+        ).first()
+        <span class="kw">if</span> tenant <span class="kw">is</span> <span class="kw">None</span>:
+            <span class="kw">return</span> HttpResponseNotFound(<span class="str">"Unknown tenant"</span>)
+        request.tenant = tenant
+        <span class="kw">return</span> self.get_response(request)</code></pre>
+  </section>
+
+  <!-- ===================== Q9 ===================== -->
+  <section class="qa" id="q9">
+    <div class="qa__head">
+      <span class="qa__num">08</span>
+      <h2 class="qa__title">A global enforcement plan for tenant isolation</h2>
+    </div>
+
+    <p>No single mechanism is enough — the plan is <strong>defense in depth</strong>. Each
+    layer below catches what the layer above might miss.</p>
+
+    <div class="layers" id="layers">
+      <div class="layer" data-layer="1">
+        <div class="layer__index">01</div>
+        <div class="layer__body">
+          <div class="layer__title">Middleware — resolution</div>
+          <div class="layer__desc">Resolves and attaches <code>request.tenant</code> for every request.</div>
+        </div>
+      </div>
+      <div class="layer" data-layer="2">
+        <div class="layer__index">02</div>
+        <div class="layer__body">
+          <div class="layer__title">Manager / queryset — data access</div>
+          <div class="layer__desc">Default queryset is filtered by tenant, so "forgetting to filter" is structurally hard.</div>
+        </div>
+      </div>
+      <div class="layer" data-layer="3">
+        <div class="layer__index">03</div>
+        <div class="layer__body">
+          <div class="layer__title">Base ViewSet — view layer</div>
+          <div class="layer__desc"><code>get_queryset()</code> overridden once, inherited by every viewset.</div>
+        </div>
+      </div>
+      <div class="layer" data-layer="4">
+        <div class="layer__index">04</div>
+        <div class="layer__body">
+          <div class="layer__title">Object-level permission — authorization</div>
+          <div class="layer__desc">Re-checks <code>obj.tenant == request.tenant</code> even if the queryset was bypassed.</div>
+        </div>
+      </div>
+      <div class="layer" data-layer="5">
+        <div class="layer__index">05</div>
+        <div class="layer__body">
+          <div class="layer__title">Serializer — write safeguard</div>
+          <div class="layer__desc"><code>tenant</code> is read-only; never accepted from client input.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout--warn">
+      <span class="callout__icon">⚠</span>
+      <div>A single layer (e.g. only <code>get_queryset()</code>) protects the standard
+      CRUD paths but not custom <code>@action</code> methods, raw queries, or future
+      mistakes like <code>Model.objects.get(pk=pk)</code>. The combination is what makes
+      tenant-safety the <em>default</em>, not an opt-in.</div>
+    </div>
+  </section>
+
+  <!-- ===================== Q10 ===================== -->
+  <section class="qa" id="q10">
+    <div class="qa__head">
+      <span class="qa__num">09</span>
+      <h2 class="qa__title">Where tenant resolution actually runs</h2>
+    </div>
+
+    <p>Middleware, authentication classes, permission classes and viewsets could all
+    theoretically know about the tenant — but only one of them should be the
+    <strong>resolver</strong>. The rest should <em>consume</em> what it produces.</p>
+
+    <div class="flow-diagram">
+      <div class="flow-node flow-node--resolve">
+        <div class="flow-node__title">Middleware</div>
+        <div class="flow-node__role">Resolves</div>
+        <div class="flow-node__desc">subdomain / header / token → <code>request.tenant</code></div>
+      </div>
+      <div class="flow-down">↓ all requests, every endpoint</div>
+      <div class="flow-node flow-node--auth">
+        <div class="flow-node__title">Authentication</div>
+        <div class="flow-node__role">Identifies</div>
+        <div class="flow-node__desc">who is the user, within this tenant?</div>
+      </div>
+      <div class="flow-down">↓</div>
+      <div class="flow-node flow-node--perm">
+        <div class="flow-node__title">Permissions</div>
+        <div class="flow-node__role">Authorizes</div>
+        <div class="flow-node__desc">does this user/object belong to <code>request.tenant</code>?</div>
+      </div>
+      <div class="flow-down">↓</div>
+      <div class="flow-node flow-node--view">
+        <div class="flow-node__title">ViewSet / queryset</div>
+        <div class="flow-node__role">Scopes</div>
+        <div class="flow-node__desc">all data access filtered by <code>request.tenant</code></div>
+      </div>
+    </div>
+
+    <div class="why-not">
+      <h4>Why not the alternatives as the primary resolver?</h4>
+      <ul class="compare__list">
+        <li><strong>Authentication classes</strong> — DRF-only, tied to auth flow, awkward for short-circuiting non-API requests like the admin or media.</li>
+        <li><strong>Permission classes</strong> — should check tenant membership, not discover the tenant; conflating the two makes them harder to reuse and test.</li>
+        <li><strong>Viewsets</strong> — would duplicate logic per-viewset and run too late, after routing and auth have already happened.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===================== Q11 ===================== -->
+  <section class="qa" id="q11">
+    <div class="qa__head">
+      <span class="qa__num">10</span>
+      <h2 class="qa__title">Auto-scoping every viewset action — without repeating yourself</h2>
+    </div>
+
+    <p>Every DRF action — <code>list</code>, <code>retrieve</code>, <code>update</code>,
+    <code>partial_update</code>, <code>destroy</code> — funnels through
+    <code>get_queryset()</code> (and <code>get_object()</code>, which calls it). Override it
+    <strong>once</strong> in a base class, and every action inherits the tenant filter.</p>
+
+    <pre class="codeblock"><code><span class="kw">class</span> <span class="cls">TenantScopedQuerySetMixin</span>:
+    <span class="kw">def</span> <span class="fn">get_queryset</span>(self):
+        qs = super().get_queryset()
+        <span class="kw">return</span> qs.filter(tenant=self.request.tenant)
+
+
+<span class="kw">class</span> <span class="cls">BaseTenantViewSet</span>(TenantScopedQuerySetMixin, viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated, IsTenantObjectOwner]
+
+    <span class="kw">def</span> <span class="fn">perform_create</span>(self, serializer):
+        <span class="comment"># Force the tenant — never trust client input</span>
+        serializer.save(tenant=self.request.tenant)</code></pre>
+
+    <h3 class="section-sub">What each action gets, automatically</h3>
+    <div class="action-grid">
+      <div class="action-card">
+        <div class="action-card__verb">list</div>
+        <div class="action-card__desc">Calls <code>filter_queryset(get_queryset())</code> — already tenant-filtered.</div>
+      </div>
+      <div class="action-card">
+        <div class="action-card__verb">retrieve / update / destroy</div>
+        <div class="action-card__desc">Use <code>get_object()</code> → <code>get_queryset().get(pk=...)</code>. Another tenant's object simply isn't in the queryset → <strong>404</strong>, not 403 — no existence leak.</div>
+      </div>
+      <div class="action-card">
+        <div class="action-card__verb">create</div>
+        <div class="action-card__desc"><code>perform_create()</code> sets <code>tenant</code> server-side. Serializer marks it read-only.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Q12 ===================== -->
+  <section class="qa" id="q12">
+    <div class="qa__head">
+      <span class="qa__num">11</span>
+      <h2 class="qa__title">What if someone just guesses an object ID?</h2>
+    </div>
+
+    <p>Queryset scoping is the first wall — but it should never be the only one. Three
+    layers, each catching what the previous one might miss:</p>
+
+    <div class="shield-stack" id="shieldStack">
+      <button class="shield" data-shield="1">
+        <div class="shield__icon">🧱</div>
+        <div class="shield__title">1. Queryset scoping</div>
+        <div class="shield__detail">
+          A request for <code>/orders/123/</code> where 123 belongs to another tenant
+          isn't even in <code>get_queryset()</code> — <code>get_object()</code> raises
+          <code>Http404</code> before any permission check runs. The object effectively
+          "doesn't exist."
+        </div>
+      </button>
+      <button class="shield" data-shield="2">
+        <div class="shield__icon">🛂</div>
+        <div class="shield__title">2. Object-level permission</div>
+        <div class="shield__detail">
+          Safety net for any path that bypasses the queryset — custom
+          <code>@action</code>s, raw lookups. <code>has_object_permission()</code> checks
+          <code>obj.tenant_id == request.tenant.id</code> and returns 403 if it ever fires.
+        </div>
+      </button>
+      <button class="shield" data-shield="3">
+        <div class="shield__icon">✍️</div>
+        <div class="shield__title">3. Serializer validation</div>
+        <div class="shield__detail">
+          <code>tenant</code> is read-only. Any nested foreign key (e.g. attaching an order
+          to a project) is validated in <code>validate()</code> to belong to
+          <code>request.tenant</code> — so a guessed ID can't link records across tenants.
+        </div>
+      </button>
+    </div>
+
+    <pre class="codeblock"><code><span class="kw">class</span> <span class="cls">IsTenantObjectOwner</span>(BasePermission):
+    <span class="kw">def</span> <span class="fn">has_object_permission</span>(self, request, view, obj):
+        <span class="kw">return</span> getattr(obj, <span class="str">'tenant_id'</span>, <span class="kw">None</span>) == request.tenant.id</code></pre>
+
+    <h3 class="section-sub">Testing it</h3>
+    <div class="test-grid">
+      <div class="test-card">
+        <div class="test-card__icon">🏢🏢</div>
+        <div class="test-card__body">Seed data for <strong>two tenants</strong> (A and B), authenticate as a Tenant A user.</div>
+      </div>
+      <div class="test-card">
+        <div class="test-card__icon">🎯</div>
+        <div class="test-card__body">Hit <strong>every action</strong> — including custom <code>@action</code>s — using Tenant B's object IDs.</div>
+      </div>
+      <div class="test-card">
+        <div class="test-card__icon">✅</div>
+        <div class="test-card__body">Assert <strong>404/403</strong> on cross-tenant access, and that writes can't relink to Tenant B via a guessed FK.</div>
+      </div>
+      <div class="test-card">
+        <div class="test-card__icon">🔁</div>
+        <div class="test-card__body">Wrap it in a reusable <code>TenantIsolationTestCase</code> mixin — every new endpoint inherits the check.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="footer">
+    <div class="footer__rule"></div>
+    <div class="footer__content">
+      <div class="footer__author">
+        <div class="avatar avatar--lg">AS</div>
+        <div>
+          <div class="author-name">Agyemang Samuel</div>
+          <div class="author-role">Senior Frontend Developer · 35+ years building for the web</div>
+        </div>
+      </div>
+      <p class="footer__note">
+        Written as an interactive reference — every diagram on this page is live HTML,
+        CSS and JavaScript, no images. Best viewed with the lights dim and a terminal
+        nearby.
+      </p>
+    </div>
+  </footer>
+
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
